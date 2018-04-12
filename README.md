@@ -47,5 +47,5 @@ pip install requests
 
 python slack-old-file-delete.py
 ```
-まず、DO_DELETE=False / DO_DOWNLOAD=False で試しに実行することを強くおすすめします。
+まず、DO_DELETE=False / DO_DOWNLOAD=False で試しに実行することを強くおすすめします。  
 また、事故防止の為に py ファイル内に max_loopという変数で最大処理数を制限しています。
