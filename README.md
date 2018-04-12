@@ -17,12 +17,13 @@ SLACK_API_TOKEN=xoxp-xxxxxxxxx...
 
 SlackのAPIトークンです。legacy-tokenでテストしています。
 発行は以下から。
-https://api.slack.com/custom-integrations/legacy-tokens
+
+`https://api.slack.com/custom-integrations/legacy-tokens`
 
 ```
 SAVE_PATH=c:\save-dir
 ```
-画像ファイルの保存先です。この下にチャンネル名でフォルダが生成され、その中に画像が保存されます。実行ログもここに出力されます。
+画像ファイルの保存先です。この下にチャンネル名でフォルダが生成され、その中に画像が保存されます。実行ログもここに出力されます。
 
 ```
 MIN_OLD_DAY=30
@@ -47,4 +48,4 @@ pip install requests
 python slack-old-file-delete.py
 ```
 まず、DO_DELETE=False / DO_DOWNLOAD=False で試しに実行することを強くおすすめします。
-また、事故防止の為に py ファイル内に max_loopという変数で最大処理数を制限しています。
+また、事故防止の為に py ファイル内に max_loopという変数で最大処理数を制限しています。
