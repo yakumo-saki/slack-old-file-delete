@@ -23,7 +23,8 @@ SlackのAPIトークンです。legacy-tokenでテストしています。
 ```
 SAVE_PATH=c:\save-dir
 ```
-画像ファイルの保存先です。この下にチャンネル名でフォルダが生成され、その中に画像が保存されます。実行ログもここに出力されます。
+画像ファイルの保存先です。この下にチャンネル名でフォルダが生成され、その中に画像が保存されます。
+実行ログもここに出力されるため、DO_DOWNLOAD = Falseでも指定が必要です。
 
 ```
 MIN_OLD_DAY=30
@@ -33,12 +34,22 @@ MIN_OLD_DAY=30
 ```
 DO_DELETE=True
 ```
+省略可能：デフォルト値 False
 削除を実行するか否か(True / False)
 
 ```
+
 DO_DOWNLOAD=True
 ```
+省略可能：デフォルト値 False
 ファイルのダウンロードを実行するか否か (True / False)
+
+```
+EXCLUDE_CHANNELS=G12345678,G98765432
+```
+省略可能：デフォルト値 なし
+処理しないチャンネル。このチャンネルにあるファイルは処理しない。
+カンマ区切りで複数チャンネルを指定可能。指定するのはチャンネルIDであることに注意。
 
 ## 実行
 ```
@@ -47,5 +58,5 @@ pip install requests
 
 python slack-old-file-delete.py
 ```
-まず、DO_DELETE=False / DO_DOWNLOAD=False で試しに実行することを強くおすすめします。  
+まず、DO_DELETE=False / DO_DOWNLOAD=False で試しに実行することを強くおすすめします。
 また、事故防止の為に py ファイル内に max_loopという変数で最大処理数を制限しています。
