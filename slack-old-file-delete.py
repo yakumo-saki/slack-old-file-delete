@@ -257,6 +257,7 @@ if __name__ == '__main__':
         logger.info("#### loop " + str(i + 1) + " of " + str(max_loop))
 
         file_list = get_file_list(max_ts)
+        sleep(2)  # 過負荷防止用sleep
         logger.info("request filelist max_ts=" + str(max_ts) + " ("
                     + timestamp_to_str(max_ts) + ") #####")
 
