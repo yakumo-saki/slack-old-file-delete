@@ -36,7 +36,7 @@ max_loop = 50
 # DANGERZONE
 process_private = True   # プライベートグループ、DMのファイルを処理するか
 
-version = "1.10"
+version = "1.11"
 
 # CONFIG ######################################################################################
 
@@ -146,17 +146,17 @@ def create_download_filename(file_info):
 
     channel_name = get_chat_name(file_info)
 
+    if channel_name == None:
+        logger.error("[SKIP] can't get channel name. ID=" + file_info['id'])
+        return None # Noneを返すとskipする
+
     if len(file_info['groups']) != 0 and not process_private:
-        logger.info("private file. skipped " + file_info['id'])
+        logger.info("[SKIP] private file. " + channel_name + " " + file_info['id'])
         return None
 
     if is_exclude_channels(file_info):
-        logger.info("exclude channel. skipped " + file_info['id'])
+        logger.info("[SKIP] exclude channel. " + channel_name + " " + file_info['id'])
         return None
-
-    if channel_name == None:
-        logger.error("can't get name ID=" + file_info['id'])
-        return None # Noneを返すとskipする
 
     # memo slackの表示上は title が表示されるがファイル名的に不適切な文字があるので permalinkから拾う
     org_file_name = get_filename_from_url(file_info['permalink'])
@@ -274,7 +274,8 @@ if __name__ == '__main__':
                 download_file(file['url_private'], p)
                 delete_remote_file(file['id'])
             else:
-                logger.info("skipped. id=" + file['id'])
+                pass
+                #logger.info("skipped. id=" + file['id'])
 
             # 次のリクエスト用
             max_ts = file['created'] - 1   # 同一ファイルがひっかかるのを防止
