@@ -273,6 +273,7 @@ if __name__ == '__main__':
             if p != None:
                 download_file(file['url_private'], p)
                 delete_remote_file(file['id'])
+                sleep(1)  # 過負荷防止用sleep
             else:
                 pass
                 #logger.info("skipped. id=" + file['id'])
@@ -280,7 +281,6 @@ if __name__ == '__main__':
             # 次のリクエスト用
             max_ts = file['created'] - 1   # 同一ファイルがひっかかるのを防止
             file_count = file_count + 1
-            sleep(1)
 
     logger.info("process end. end max_ts=" + str(max_ts) + " " + timestamp_to_str(max_ts))
     logger.info("** END")
