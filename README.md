@@ -1,16 +1,15 @@
 # slack-old-file-delete
+
 Python script, to download and delete old files in slack
 指定日時より古いSlack上のファイルを削除します
 
 python 3系で動くと思います。
-動作テストは Windows上のpython 3.6で行いました
-```
-python --version
-Python 3.6.4 :: Anaconda, Inc.
-```
+動作テストは Debian Buster上のpython 3.7で行いました
 
 ## 使い方
+
 以下の環境変数をセットします。 (env parameters)
+
 ```
 SLACK_API_TOKEN=xoxp-xxxxxxxxx...
 ```
@@ -52,11 +51,41 @@ EXCLUDE_CHANNELS=G12345678,G98765432
 カンマ区切りで複数チャンネルを指定可能。指定するのはチャンネルIDであることに注意。
 
 ## 実行
-```
-pip install slackclient
-pip install requests
 
-python slack-old-file-delete.py
 ```
+pip3 install -r requirements.txt
+python3 slack-old-file-delete.py
+```
+
 まず、DO_DELETE=False / DO_DOWNLOAD=False で試しに実行することを強くおすすめします。
 また、事故防止の為に py ファイル内に max_loopという変数で最大処理数を制限しています。
+
+実行スクリプトのサンプルは以下。
+
+```
+#!/bin/bash
+
+export SLACK_API_TOKEN=xoxp-1234.....
+
+export SAVE_PATH=/work/slack-save
+export MIN_OLD_DAY=21
+export DO_DELETE=False
+export DO_DOWNLOAD=True
+
+# 処理除外チャンネル。カンマ区切り
+export EXCLUDE_CHANNELS=GABCDEEF
+
+mkdir -p $SAVE_PATH
+cd ~/scripts/slack-old-file-delete
+python3 slack-old-file-delete.py
+```
+
+## changelog
+
+### v1.50
+
+* 多数のバグ修正
+
+### v1.20
+
+* 初期バージョン

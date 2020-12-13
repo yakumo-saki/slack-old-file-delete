@@ -1,8 +1,10 @@
 import logging
-from slackclient import SlackClient
+from slack import WebClient
 from datetime import datetime
 from datetime import timedelta
 from time import sleep
+import requests
+
 import os
 
 def parse_boolstr(boolstr):
@@ -17,7 +19,7 @@ save_dir = os.environ["SAVE_PATH"]  # 'c:\\save-dir'
 slack_token = os.environ["SLACK_API_TOKEN"]
 delete_delta = timedelta(days=int(os.environ["MIN_OLD_DAY"]))
 
-do_delete = parse_boolstr(os.getenv("DO_DELETE", 'False'))       # Falseにすると削除は行わない
+do_delete = parse_boolstr(os.getenv("DO_DELETE", 'True'))       # Falseにすると削除は行わない
 do_download = parse_boolstr(os.getenv("DO_DOWNLOAD", 'False'))   # Falseにするとダウンロードしない
 
 exclude_channels = os.getenv("EXCLUDE_CHANNELS","").split(",")
@@ -34,17 +36,23 @@ max_path_len = 230
 max_loop = 50
 
 # DANGERZONE
-process_private = True   # プライベートグループ、DMのファイルを処理するか
+process_private = False   # プライベートグループ、DMのファイルを処理するか
 
-version = "1.11"
+version = "1.50"
 
 # CONFIG ######################################################################################
 
 def fetch_channel_list():
-    # チャンネル一覧（名前がほしい）
-    channels_response = sc.api_call(
-        "channels.list",
-        exclude_members=True
+    """
+    チャンネル、DM、マルチDM一覧取得
+    """
+    # channels_response = sc.api_call(
+    #     api_method="channels.list",
+    #     json={'exclude_members': True}
+    # )
+    channels_response = sc.conversations_list(
+        types="public_channel, private_channel, mpim, im",
+        limit=1000       
     )
 
     if channels_response['ok'] != True:
@@ -52,17 +60,6 @@ def fetch_channel_list():
 
     return channels_response
 
-def fetch_group_list():
-    # グループ名一覧（グループDM・プライベートチャンネルの名前がほしい）
-    groups_response = sc.api_call(
-        "groups.list",
-        exclude_members=True
-    )
-
-    if groups_response['ok'] != True:
-        raise ApiFailError
-
-    return groups_response
 
 def get_channel_name(id):
     """
@@ -76,21 +73,7 @@ def get_channel_name(id):
     logger.warning("channel name not found (maybe not accessible)-> " + id)
     return None
 
-def get_group_name(id):
-    """
-    プライベートグループ・グループDMの名前取得
-    見つからなかった場合 None
-    """
-    for group in groups_response['groups']:
-        if group['id'] == id:
-            return group['name']
-
-
-    logger.warning("private group or group dm name not found (maybe not accessible)-> " + id)
-    return None
-
 def download_file(url, savepath):
-    import requests
     import struct
 
     if do_download != True:
@@ -120,7 +103,7 @@ def get_chat_name(file_info):
     elif len(file_info['groups']) != 0:
         # private channelはグループDMと同一扱い
         channel_id = file_info['groups'][0]
-        channel_name = get_group_name(channel_id)
+        channel_name = "PRIVATE_" + get_channel_name(channel_id)
     else:
         # 諦めて適当な名前をつける
         channel_name = "_孤立ファイル"
@@ -138,7 +121,7 @@ def is_exclude_channels(file_info):
 def create_download_filename(file_info):
     """
     save_dir + yyyymmddhhmmss_id_originalname
-    import os
+    処理してはいけないファイルの場合 None がかえる
     """
 
     # memo created はJSTで返してきてる
@@ -189,7 +172,7 @@ def delete_remote_file(file_id):
 
     response = sc.api_call(
         "files.delete",
-        file = file_id
+        json={'file': file_id}
     )
 
     if response['ok'] != True:
@@ -199,15 +182,22 @@ def delete_remote_file(file_id):
     return True
 
 def get_file_list(max_timestamp):
-    #ファイル一覧
-    files_response = sc.api_call(
-        "files.list",
-        count=30,
-        types=file_type,
-        ts_to = max_timestamp
-    )
+    """
+    ファイル一覧の取得
+    """
+    # files.list APIは call_apiで呼ぶことが出来ない（呼べるが、パラメタを渡せない）
+
+    headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+    params = {'token': slack_token, 'count': 200, 'types': file_type, 'ts_to': max_timestamp}
+
+    response = requests.post('https://slack.com/api/files.list',
+                        headers=headers,
+                        params=params)
+
+    files_response = response.json()
 
     if files_response['ok'] != True:
+        logger.error(files_response)
         raise ApiFailError
 
     return files_response
@@ -240,13 +230,17 @@ if __name__ == '__main__':
     logger.info("exclude_channels " + str(exclude_channels))
 
     # main
-    sc = SlackClient(slack_token)
+    #sc = SlackClient(slack_token)
+    sc = WebClient(token=slack_token)
 
     max_date = datetime.now() - delete_delta
-    max_timestamp = max_date.timestamp()
+    max_timestamp = int(max_date.timestamp())
+    if (do_delete):
+        logger.info("Delete files before " + timestamp_to_str(max_timestamp))
+    else:
+        logger.info("Disable file deletion.")
 
     channels_response = fetch_channel_list()
-    groups_response = fetch_group_list()
 
     # main loop
     max_ts = max_timestamp
@@ -254,34 +248,42 @@ if __name__ == '__main__':
 
     logger.info("process start. start max_ts=" + str(max_ts) + " " + timestamp_to_str(max_ts))
     for i in range(max_loop):
-        logger.info("#### loop " + str(i + 1) + " of " + str(max_loop))
-
         file_list = get_file_list(max_ts)
         sleep(2)  # 過負荷防止用sleep
-        logger.info("request filelist max_ts=" + str(max_ts) + " ("
-                    + timestamp_to_str(max_ts) + ") #####")
+        logger.info(f"Requested filelist #{i + 1}/{max_loop}" 
+                    + f" max_ts(until this timestamp)={max_ts}"
+                    + f" ({timestamp_to_str(max_ts)})"
+                    + f" file count = {len(file_list['files'])}")
 
         if len(file_list['files']) == 0:
-            logger.info("file list is empty. complete.")
+            logger.info("File list is empty. complete.")
             break
 
         for file in file_list['files']:
             p = create_download_filename(file)
-            logger.info("COUNT=" + str(file_count) + " ID=" + file['id'] + " created=" + str(file['created'])
-                        + " (" + datetime.fromtimestamp(file['created']).strftime('%Y/%m/%d %H:%M:%S')
-                        + ") TITLE=" + file['title'] + " " + file['url_private'] + " " + str(p))
+            file_date = datetime.fromtimestamp(file['created'])
 
-            if p != None:
+            if file_date < max_date and p != None:
+                logger.info(f"Delete file ID={file['id']}" 
+                            + f" created={file['created']}"
+                            + f" ({file_date.strftime('%Y/%m/%d %H:%M:%S')})"
+                            + f" TITLE=file['title']"
+                            + f" {file['url_private']} {p}")
+
                 download_file(file['url_private'], p)
                 delete_remote_file(file['id'])
                 sleep(1)  # 過負荷防止用sleep
             else:
+                #logger.debug("skipped. id=" + file['id'])
                 pass
-                #logger.info("skipped. id=" + file['id'])
 
             # 次のリクエスト用
-            max_ts = file['created'] - 1   # 同一ファイルがひっかかるのを防止
             file_count = file_count + 1
+            if file['created'] < max_ts:
+                max_ts = int(file['created'] - 1)   # 同一ファイルがひっかかるのを防止
+                logger.debug(f"max_ts updated {max_ts}")
+
+        logger.info(f"Files processed {file_count}")
 
     logger.info("process end. end max_ts=" + str(max_ts) + " " + timestamp_to_str(max_ts))
     logger.info("** END")
